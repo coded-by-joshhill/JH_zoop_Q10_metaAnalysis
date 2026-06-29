@@ -1,13 +1,12 @@
 # Cleaning historic Q10 data
 # Josh Hill
-# 03/02/26
+# 29/06/26
 
 
 
   # Here I read in the data
   # Use worrms package to get AphiaID's and taxon classifications
   # Group zoops into unique groups
-  # Convert absolute rates to mass-specific
   # Save as an RDS file
 
 
