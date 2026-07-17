@@ -15,18 +15,18 @@
 library(tidyverse)
 library(janitor)
 library(worrms)
-source("R/0_Helpers.R")
 
 
 
 # Read in the data ----
-dat <- read_csv("https://www.dropbox.com/scl/fi/qsach648tlqobvimd34ra/Historic_Q10_dat.csv?rlkey=pfe18t6oo5plxbxzwcpeh42xx&st=odca7bem&dl=1") %>%
+dat <- read_csv("https://www.dropbox.com/scl/fi/qsach648tlqobvimd34ra/Historic_Q10_dat.csv?rlkey=pfe18t6oo5plxbxzwcpeh42xx&st=doky65do&dl=1") %>%
   mutate(ref_no = paste0("Hill_", row_number()), # create a unique identifier (e.g., Hill_row#)
          taxa = str_squish(taxa),
          rate = recode(rate,
                         "AmmoniaExcretion" = "ExcretionAmmonia",
                        .default = rate)) %>% 
-  relocate(ref_no, .before = everything()) %>%  # move it before all columns
+  filter(taxa != "Zooplankton") %>% # remove these observations because we cannot derive Aphia ID and specific classifications...
+  relocate(ref_no, .before = everything()) %>%  # move refno before all columns
   select(-temp_range_C)
 glimpse(dat)
 
@@ -43,8 +43,8 @@ glimpse(dat)
     group_by(Q10Type) %>% 
     distinct(primRef) %>% 
     summarise(count = n())
-      # 9 interspecific records
-      # 36 intraspecific records
+      # 11 interspecific records
+      # 37 intraspecific records
   
   
   # Look at the Q10 types and rates
@@ -69,11 +69,13 @@ taxaDat <- dat %>%
 
     taxaDatID %>% 
       summary() # ensure there are no NAs...
-      # There's one...
+      # There's two...
+    view(taxaDatID) # Appendicularia and Ctenophora
     
       # Manually add Aphia ids for missing data
       taxaDatID <- taxaDatID %>%
-        mutate(AphiaID = if_else(row_number() == 19, 1248, AphiaID))
+        mutate(AphiaID = if_else(taxa == "Appendicularia", 146421, AphiaID)) %>% 
+        mutate(AphiaID = if_else(taxa == "Ctenophora", 1248, AphiaID))
 
 
   # Add classifications using AphiaIDs
@@ -105,7 +107,7 @@ datClean <- dat %>%
         phylum == "Chaetognatha"  ~ "Mesoplankton",
         class == "Appendicularia" ~ "Mesoplankton", # grouped here because we only have Oikopleura dioica
         class == "Copepoda"       ~ "Mesoplankton",
-        order == "Pteropoda"      ~ "Mesoplankton", # grouped here because they are Pteropods
+        order == "Pteropoda"      ~ "Mesoplankton", # grouped here because they are juv pteropods and larval bivalves
         # Macroplankton: 20 mm - 200 mm
         phylum == "Annelida"      ~ "Macroplankton", # grouped here because Tomopteris carpenteri is a larger sp.
         phylum == "Cnidaria"      ~ "Macroplankton",
@@ -165,18 +167,18 @@ datClean <- dat %>%
     mutate(countZoopGrp = sum(zoopGrp > 1, na.rm = TRUE)) %>% 
     distinct(zoopGrp, countZoopGrp) %>% 
     arrange(countZoopGrp)
-        # OTHER - i.e., Rotifera      1
-        # Mysids                      1
-        # Chaetognaths                1
-        # Ctenophores                 1
-        # Thaliaceans                 1
-        # Amphipods                   5
-        # Cnidarians                 10
-        # Appendicularians           10
-        # Molluscs                   15
-        # Euphausiids                29
-        # Decapods                   29
-        # Copepods                   98
+  # 1 Mysids                      2
+  # 2 Chaetognaths                5
+  # 3 OTHER                       6 ... these are 1 rotifer and 5 crustacea..which cannot have a finer zoopGrp classification
+  # 4 Ctenophores                 9
+  # 5 Thaliaceans                11
+  # 6 Appendicularians           13
+  # 7 Molluscs                   15
+  # 8 Cnidarians                 19
+  # 9 Decapods                   30
+  # 10 Euphausiids                34
+  # 11 Amphipods                  74
+  # 12 Copepods                  131
   
   # Count number of unique "functional" groups Q10s
   datClean %>% 
@@ -184,10 +186,10 @@ datClean <- dat %>%
     mutate(countFuncGrp = sum(funcGrp > 1, na.rm = TRUE)) %>% 
     distinct(funcGrp, countFuncGrp) %>% 
     arrange(countFuncGrp)
-    # GelFilter             11
-    # GelPreds              12
-    # OTHER                 16
-    # Crustaceans          162
+  # 1 OTHER                 21
+  # 2 GelFilter             24
+  # 3 GelPreds              33
+  # 4 Crustaceans          271
   
   # Count number of unique size groups Q10s
   datClean %>% 
@@ -195,12 +197,12 @@ datClean <- dat %>%
     mutate(countSizeGrp = sum(sizeGrp > 1, na.rm = TRUE)) %>% 
     distinct(sizeGrp, countSizeGrp) %>% 
     arrange(countSizeGrp)
-    # OTHER                    9
-    # Macroplankton           76
-    # Mesoplankton           116
+  # 1 OTHER                   14
+  # 2 Mesoplankton           156
+  # 3 Macroplankton          179
 
 # End data cleaning ----
 
   
 # Save the data
-# saveRDS(datClean, "Data/historicQ10_dat.rds")
+saveRDS(datClean, "Data/historicQ10_dat.rds")
