@@ -14,6 +14,14 @@ dat <- readRDS("Data/historicQ10_dat.rds") %>%
   relocate(zoopGrp, .before = phylum)
 glimpse(dat)
 
+modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
+  mutate(name = "Temp dependence in MEMs") %>%  # update name
+  select(-rate)
+  
+
+modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
+  mutate(name = "Temp dependence in MEMs") # update name
+
 # Custom grouping orders 
 group_order <- c("Ctenophores",
                  "Cnidarians",
@@ -77,25 +85,58 @@ summary_data <- summary_data %>%
       mutate(CI_lwr = mean_Q10 - Z * se,
              CI_upr = mean_Q10 + Z * se))
 
+# Arrange the x-axis text order...
+grp_order <- levels(pdat$zoopGrp)
+axis_levels <- c(grp_order, "Overall zooplankton", "Temp dependence in MEMs")
 
-grp_order   <- levels(pdat$zoopGrp)
-if (is.null(grp_order)) grp_order <- unique(as.character(pdat$zoopGrp))
-axis_levels <- c(grp_order, "Overall zooplankton")
+
 
 # Plot it up...
 meanQ10s <- ggplot() +
+  # Background panel for overall Z
+  annotate("rect",
+           xmin = length(grp_order) + 0.5,
+           xmax = length(grp_order) + 1.5,
+           ymin = -Inf,
+           ymax = Inf,
+           fill = "grey85",
+           alpha = 0.5) +
+  # Background panel for Q10 vals in models
+  annotate("rect",
+           xmin = length(grp_order) + 1.5,
+           xmax = length(grp_order) + 2.6,
+           ymin = -Inf,
+           ymax = Inf,
+           fill = "grey60",
+           alpha = 0.4) +
+  # Horizontal line showing mean Q10 used in models
+  geom_hline(yintercept = 1.46, # the value of meanQ10 in models...
+             linetype = "dashed",
+             colour = "black",
+             linewidth = 0.5) +
   # Dashed vertical separator before the OverallZ column
   geom_vline(xintercept = length(grp_order) + 0.5,
-             linetype = "dashed", colour = "grey60", linewidth = 0.3) +
+             linetype = "dashed", 
+             colour = "grey60", 
+             linewidth = 0.5) +
+  # Dashed vertical separator before the Q10 vals in models
+  geom_vline(xintercept = length(grp_order) + 1.5,
+             linetype = "solid", 
+             colour = "black", 
+             linewidth = 0.5) +
   # Raw Q10 data from the literature
-  geom_jitter(data = pdat,
+  geom_point(data = pdat,
               aes(x = zoopGrp, y = Q10, colour = "raw"),
-              width = 0.15, size = 1.5, alpha = 0.3) +
+              width = 0.15, 
+             size = 1.5, 
+             alpha = 0.3,
+             position = position_jitter(width = 0.2)) +
   # Error bars based on SE (taxa + overall; overall passes n > 2 via group count)
   geom_errorbar(data = summary_data %>% filter(n > 2),
                 aes(x = zoopGrp, ymin = CI_lwr, ymax = CI_upr),
-                width = 0.15, colour = "black") +
-  # mean Q10
+                width = 0.15, 
+                colour = "black") +
+  # mean Q10 points
   geom_point(data = summary_data %>% filter(zoopGrp != "Overall zooplankton"),
              aes(x = zoopGrp, y = mean_Q10, colour = "mean"),
              size = 2) +
@@ -103,41 +144,57 @@ meanQ10s <- ggplot() +
   geom_point(data = summary_data %>% filter(zoopGrp == "Overall zooplankton"),
              aes(x = zoopGrp, y = mean_Q10),
              size = 2, colour = "black") +
-  # Q10 text taxonomic groups
-  geom_text(data = summary_data %>% filter(zoopGrp != "Overall zooplankton"),
-            aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
-            size = 3, colour = "black") +
-  # OverallZ Q10 text
-  geom_text(data = summary_data %>% filter(zoopGrp == "Overall zooplankton"),
-            aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
-            size = 3, colour = "black", fontface = "bold") +
+  # Error bars for Q10 in MEMs
+  geom_errorbar(data = modDatSum,
+                aes(x = name, ymin = CI_lwr, ymax = CI_upr),
+                width = 0.15,
+                colour = "black") +
+  # raw Q10 in MEMs points
+  geom_point(data = modDat,
+             aes(x = name, y = Q10, colour = "raw"),
+             size = 1.5,
+             alpha = 0.3,
+             position = position_jitter(width = 0.15)) +
+  # Q10 in MEMs mean point
+  geom_point(data = modDatSum,
+             aes(x = name, y = mean_Q10, colour = "mean"),
+             size = 2) +
+  # # Q10 text taxonomic groups
+  # geom_text(data = summary_data %>% filter(zoopGrp != "Overall zooplankton"),
+  #           aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
+  #           size = 3, colour = "black") +
+  # # OverallZ Q10 text
+  # geom_text(data = summary_data %>% filter(zoopGrp == "Overall zooplankton"),
+  #           aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
+  #           size = 3, colour = "black", fontface = "bold") +
+  # Facet wrap by the rate processes
   facet_wrap(~rate, scales = "fixed", ncol = 2) +
   theme_bw() +
   labs(x = NULL,
        y = expression("Temperature sensitivity (Q"[10] *")")) +
+  # Force the y-axis values to be between 0 and 8 to show raw data
   scale_y_continuous(breaks = seq(0, 8, by = 2)) +
-  # CHANGED: force taxonomic order with Overall pinned last
+  # Use custom taxonomic order with Overall specified as the last "column"
   scale_x_discrete(limits = axis_levels,
-                   expand = expansion(add = c(0.6, 1.1))) +
+                   expand = expansion(add = c(0.4, 0.4))) +
   scale_colour_manual(name = NULL,
                       values = c("raw" = "darkgrey", "mean" = "black"),
                       labels = c("raw"  = expression("Raw Q"[10]),
                                  "mean" = expression("Mean Q"[10]))) +
-  scale_linetype_manual(name = NULL,
-                        values = c("assumed" = "dashed"),
-                        labels = expression("Commonly assumed model Q"[10])) +
-  theme(axis.text = element_text(size = 10),
+  theme(axis.text = element_text(size = 9),
         axis.text.x = element_text(angle = 30, hjust = 1),
         panel.border = element_rect(colour = "grey30", linewidth = 0.3, fill = NA),
         legend.position = "top",
         strip.text = element_text(size = 10, face = "bold"),
-        plot.margin = margin(t = 5, r = 5, b = 5, l = 25)) +
+        plot.margin = margin(t = 5, r = 5, b = 5, l = 25),
+        panel.grid.minor.y = element_blank(),
+        strip.background = element_rect(fill = "NA", colour = "NA")) +
   coord_cartesian(clip = "off") +
   guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2)))
 meanQ10s
 
 
-# ggsave("Output/Q10Plot.pdf", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
+# ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
 ggsave("Output/Q10Plot.png", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
 
   

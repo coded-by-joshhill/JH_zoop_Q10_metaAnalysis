@@ -19,7 +19,7 @@ library(worrms)
 
 
 # Read in the data ----
-dat <- read_csv("https://www.dropbox.com/scl/fi/qsach648tlqobvimd34ra/Historic_Q10_dat.csv?rlkey=pfe18t6oo5plxbxzwcpeh42xx&st=doky65do&dl=1") %>%
+dat <- read_csv("Data/Historic_Q10_dat.csv") %>%
   mutate(ref_no = paste0("Hill_", row_number()), # create a unique identifier (e.g., Hill_row#)
          taxa = str_squish(taxa),
          rate = recode(rate,

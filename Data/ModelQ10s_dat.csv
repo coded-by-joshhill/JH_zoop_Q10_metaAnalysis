@@ -1,0 +1,19 @@
+primRef,primRef_URL,secRef,secRef_URL,taxa,model,rate,Q10,tempDepFormulation,locality,lat,lon,source,sourceNotes,verbatimComments,comments
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,WOMBAT,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,CMOC,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,PISCES,Grazing,2.139,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,COBALT,Grazing,1.878,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,NOBM,Grazing,1.325,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,MEDUSA,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,OECO,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,MARBL,Grazing,1.7,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,MRI-NPZD,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,HAMOCC,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,BLING,Grazing,Ð,NA,NA,NA,NA,Table 5,NA,Does not explicitly resolve the process,NA
+Kearny2021,10.3389/fmars.2021.622206,NA,NA,Zooplankton,CANOE,Grazing,1,NA,NA,NA,NA,Table 5,NA,NA,NA
+Heneghan2023,10.1038/s41558-023-01630-7,NA,NA,Zooplankton,ZooMSS,Growth,2,Q10,NA,NA,NA,Methods text,Selected because it was between fish Q10 and zooplankton Q10,NA,NA
+Kishi2007,10.1016/j.ecolmodel.2006.08.021,NA,NA,Zooplankton,NEMURO,All rates,2,Q10,NA,NA,NA,Section 2.3,NA,NA,NA
+Ward2012,10.4319/lo.2012.57.6.1877,NA,NA,Zooplankton,Ward ecosystem model,Grazing,1.02,Arrhenius,NA,NA,NA,Table 1 and text,NA,NA,Equivalent Q10 using Ea = 0.05
+LeQuere2016,https://doi.org/10.5194/bg-13-4111-2016,NA,NA,Protozooplankton,PlankTOM10,Growth,1.48,Q10,NA,NA,NA,Table 1,Used published syntheses,NA,Also provide phytoplankton
+LeQuere2016,https://doi.org/10.5194/bg-13-4111-2016,NA,NA,Mesozooplankton,PlankTOM10,Growth,1.27,Q10,NA,NA,NA,Table 1,Used published syntheses,NA,Also provide phytoplankton
+LeQuere2016,https://doi.org/10.5194/bg-13-4111-2016,NA,NA,Macrozooplankton,PlankTOM10,Growth,3.01,Q10,NA,NA,NA,Table 1,Used published syntheses,NA,Also provide phytoplankton
