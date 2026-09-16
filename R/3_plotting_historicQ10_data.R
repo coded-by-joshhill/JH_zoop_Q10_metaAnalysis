@@ -14,13 +14,17 @@ dat <- readRDS("Data/historicQ10_dat.rds") %>%
   relocate(zoopGrp, .before = phylum)
 glimpse(dat)
 
+# Custom rate order
+rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
+
 modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
-  mutate(name = "Temp dependence in MEMs") %>%  # update name
-  select(-rate)
-  
+  mutate(name = "Temp dependence in MEMs", # update name
+         rate = fct_relevel(rate, rate_order)) %>% 
+  drop_na(Q10)
 
 modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
-  mutate(name = "Temp dependence in MEMs") # update name
+  mutate(name = "Temp dependence in MEMs", # update name
+         rate = fct_relevel(rate, rate_order))  
 
 # Custom grouping orders 
 group_order <- c("Ctenophores",
@@ -35,7 +39,6 @@ group_order <- c("Ctenophores",
                  "Appendicularians",
                  "Thaliaceans")
                  
-rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
 
 # Create plotting dataframe ----
 pdat <- dat %>% 
@@ -72,16 +75,16 @@ summary_data <- pdat %>%
          CI_upr = mean_Q10 + Z * se)
 
 # Calculate mean and CI for "Overall zooplankton" per rate and overwrite summary_data
-summary_data <- summary_data %>%
+summary_data_wOverall <- summary_data %>%
   bind_rows(
     summary_data %>%
       group_by(rate) %>%
       summarise(zoopGrp  = "Overall zooplankton",
                 mean_Q10 = mean(mean_Q10, na.rm = TRUE),
-                sd_Q10   = NA_real_,
-                n        = sum(!is.na(se)),
-                se       = sqrt(sum(se^2, na.rm = TRUE)) /n,
-                .groups  = "drop") %>%
+                sd_Q10 = NA_real_,
+                n = sum(!is.na(se)),
+                se = sqrt(sum(se^2, na.rm = TRUE)) /n,
+                .groups = "drop") %>%
       mutate(CI_lwr = mean_Q10 - Z * se,
              CI_upr = mean_Q10 + Z * se))
 
@@ -95,24 +98,18 @@ axis_levels <- c(grp_order, "Overall zooplankton", "Temp dependence in MEMs")
 meanQ10s <- ggplot() +
   # Background panel for overall Z
   annotate("rect",
-           xmin = length(grp_order) + 0.5,
-           xmax = length(grp_order) + 1.5,
-           ymin = -Inf,
-           ymax = Inf,
-           fill = "grey85",
-           alpha = 0.5) +
+           xmin = length(grp_order) + 0.5, xmax = length(grp_order) + 1.5,
+           ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.5) +
   # Background panel for Q10 vals in models
   annotate("rect",
-           xmin = length(grp_order) + 1.5,
-           xmax = length(grp_order) + 2.6,
-           ymin = -Inf,
-           ymax = Inf,
-           fill = "grey60",
-           alpha = 0.4) +
+           xmin = length(grp_order) + 1.5, xmax = length(grp_order) + 2.6, 
+           ymin = -Inf, ymax = Inf,
+           fill = "grey60", alpha = 0.4) +
   # Horizontal line showing mean Q10 used in models
-  geom_hline(yintercept = 1.46, # the value of meanQ10 in models...
+  geom_hline(data = modDatSum, 
+             aes(yintercept = mean_Q10, colour =), # the value of meanQ10 in models...
              linetype = "dashed",
-             colour = "black",
              linewidth = 0.5) +
   # Dashed vertical separator before the OverallZ column
   geom_vline(xintercept = length(grp_order) + 0.5,
@@ -126,22 +123,21 @@ meanQ10s <- ggplot() +
              linewidth = 0.5) +
   # Raw Q10 data from the literature
   geom_point(data = pdat,
-              aes(x = zoopGrp, y = Q10, colour = "raw"),
-              width = 0.15, 
+             aes(x = zoopGrp, y = Q10, colour = "raw"),
              size = 1.5, 
              alpha = 0.3,
-             position = position_jitter(width = 0.2)) +
+             position = position_jitter(width = 0.2, height = 0)) +
   # Error bars based on SE (taxa + overall; overall passes n > 2 via group count)
-  geom_errorbar(data = summary_data %>% filter(n > 2),
+  geom_errorbar(data = summary_data_wOverall %>% filter(n > 2),
                 aes(x = zoopGrp, ymin = CI_lwr, ymax = CI_upr),
                 width = 0.15, 
                 colour = "black") +
   # mean Q10 points
-  geom_point(data = summary_data %>% filter(zoopGrp != "Overall zooplankton"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp != "Overall zooplankton"),
              aes(x = zoopGrp, y = mean_Q10, colour = "mean"),
              size = 2) +
   # OverallZ mean
-  geom_point(data = summary_data %>% filter(zoopGrp == "Overall zooplankton"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton"),
              aes(x = zoopGrp, y = mean_Q10),
              size = 2, colour = "black") +
   # Error bars for Q10 in MEMs
@@ -149,12 +145,12 @@ meanQ10s <- ggplot() +
                 aes(x = name, ymin = CI_lwr, ymax = CI_upr),
                 width = 0.15,
                 colour = "black") +
-  # raw Q10 in MEMs points
+  # Raw Q10 in MEMs points
   geom_point(data = modDat,
              aes(x = name, y = Q10, colour = "raw"),
              size = 1.5,
              alpha = 0.3,
-             position = position_jitter(width = 0.15)) +
+             position = position_jitter(width = 0.15, height = 0)) +
   # Q10 in MEMs mean point
   geom_point(data = modDatSum,
              aes(x = name, y = mean_Q10, colour = "mean"),
