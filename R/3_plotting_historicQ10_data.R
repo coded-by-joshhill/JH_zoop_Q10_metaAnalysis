@@ -5,6 +5,7 @@
 
 # Packages and helpers ----
 library(tidyverse)
+library(ggtext) # For fixing subscripts on plot easy...
 
 
 
@@ -14,19 +15,19 @@ dat <- readRDS("Data/historicQ10_dat.rds") %>%
   relocate(zoopGrp, .before = phylum)
 glimpse(dat)
 
-# Custom rate order
-rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
+  # Custom rate order 
+  rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
 
 modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
-  mutate(name = "Temp dependence in MEMs", # update name
-         rate = fct_relevel(rate, rate_order)) %>% 
+  mutate(name = "Model Q10", # update name
+         rate = fct_relevel(rate, rate_order)) %>% # relevel the rate order
   drop_na(Q10)
 
 modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
-  mutate(name = "Temp dependence in MEMs", # update name
-         rate = fct_relevel(rate, rate_order))  
+  mutate(name = "Model Q10", # update name
+         rate = fct_relevel(rate, rate_order)) # relevel the rate order
 
-# Custom grouping orders 
+# Custom grouping order
 group_order <- c("Ctenophores",
                  "Cnidarians",
                  "Chaetognaths",
@@ -43,17 +44,22 @@ group_order <- c("Ctenophores",
 # Create plotting dataframe ----
 pdat <- dat %>% 
   filter(Q10 < 20) %>% # drop extreme outliers...
+  # Filter for all initial rate types
   filter(rate %in% c("Clearance", "Ingestion", "Growth", "Respiration", 
                      "HouseProduction", "Excretion", "ExcretionAmmonia", "ExcretionPhosphate")) %>% 
   select(rate, zoopGrp, Q10) %>% 
-  mutate(rate = fct_recode(rate, # Tidy the rates 
+  # Harmonise the rates to common terms
+  mutate(rate = fct_recode(rate, 
+                           # Aggregate clearance and ingestion into Grazing
                            "Grazing" = "Clearance",
                            "Grazing" = "Ingestion",
+                           # Aggregate House production into Growth
                            "Growth"  = "HouseProduction",
+                           # Aggregate Excretion types into Excretion
                            "Excretion" = "ExcretionAmmonia",
                            "Excretion" = "ExcretionPhosphate"),
-         rate = fct_relevel(rate, rate_order),
-         zoopGrp = fct_relevel(zoopGrp, group_order))
+         rate = fct_relevel(rate, rate_order), # reorder the rates with our custom order
+         zoopGrp = fct_relevel(zoopGrp, group_order)) # as above but for zooplankton groups
 
 # Get n_obs and define variables for summary
 n_obs <- pdat %>%
@@ -64,22 +70,24 @@ n_obs <- pdat %>%
 # Create a summary of the Q10 data, including confidence intervals ----
 Z <- 1.96  # critical value for 95% CI
 
+# Summary of zooplankton Q10 data
 summary_data <- pdat %>%
   group_by(zoopGrp, rate) %>%
-  summarise(mean_Q10 = mean(Q10, na.rm = TRUE),
-            sd_Q10 = sd(Q10, na.rm = TRUE),
+  summarise(mean_Q10 = mean(Q10, na.rm = TRUE), # calculate mean Q10
+            sd_Q10 = sd(Q10, na.rm = TRUE), # calculate standard deviation
             .groups = "drop") %>%
-  left_join(n_obs, by = c("rate", "zoopGrp")) %>%
-  mutate(se = sd_Q10 / sqrt(n),
+  left_join(n_obs, by = c("rate", "zoopGrp")) %>% # left join the number of observations by rate and zooplankton group
+  mutate(se = sd_Q10 / sqrt(n), # calculate standard error so we can estimate 95% CI
+         # Estimate CIs based on SE
          CI_lwr = mean_Q10 - Z * se,
          CI_upr = mean_Q10 + Z * se)
 
-# Calculate mean and CI for "Overall zooplankton" per rate and overwrite summary_data
+# add "Overall zooplankton Q10" based on our initial 
 summary_data_wOverall <- summary_data %>%
   bind_rows(
     summary_data %>%
       group_by(rate) %>%
-      summarise(zoopGrp  = "Overall zooplankton",
+      summarise(zoopGrp  = "Overall zooplankton Q10",
                 mean_Q10 = mean(mean_Q10, na.rm = TRUE),
                 sd_Q10 = NA_real_,
                 n = sum(!is.na(se)),
@@ -90,7 +98,7 @@ summary_data_wOverall <- summary_data %>%
 
 # Arrange the x-axis text order...
 grp_order <- levels(pdat$zoopGrp)
-axis_levels <- c(grp_order, "Overall zooplankton", "Temp dependence in MEMs")
+axis_levels <- c(grp_order, "Overall zooplankton Q10", "Model Q10")
 
 
 
@@ -101,16 +109,24 @@ meanQ10s <- ggplot() +
            xmin = length(grp_order) + 0.5, xmax = length(grp_order) + 1.5,
            ymin = -Inf, ymax = Inf,
            fill = "grey85", alpha = 0.5) +
-  # Background panel for Q10 vals in models
+  # Background panel for Model Q10 vals
   annotate("rect",
            xmin = length(grp_order) + 1.5, xmax = length(grp_order) + 2.6, 
            ymin = -Inf, ymax = Inf,
            fill = "grey60", alpha = 0.4) +
+  # Text label for Overall zooplankton Q10
+  geom_text(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton Q10"),
+            aes(x = zoopGrp, y = Inf, label = sprintf("%.2f", mean_Q10)),
+            vjust = -0.5, size = 2.5) +
+  # Text label for Model Q10
+  geom_text(data = modDatSum,
+            aes(x = name, y = Inf, label = sprintf("%.2f", mean_Q10)),
+            vjust = -0.5, size = 2.5) +
   # Horizontal line showing mean Q10 used in models
-  geom_hline(data = modDatSum, 
-             aes(yintercept = mean_Q10, colour =), # the value of meanQ10 in models...
-             linetype = "dashed",
-             linewidth = 0.5) +
+  # geom_hline(data = modDatSum, 
+  #            aes(yintercept = mean_Q10, colour =), # the value of meanQ10 in models...
+  #            linetype = "dashed",
+  #            linewidth = 0.5) +
   # Dashed vertical separator before the OverallZ column
   geom_vline(xintercept = length(grp_order) + 0.5,
              linetype = "dashed", 
@@ -127,20 +143,20 @@ meanQ10s <- ggplot() +
              size = 1.5, 
              alpha = 0.3,
              position = position_jitter(width = 0.2, height = 0)) +
-  # Error bars based on SE (taxa + overall; overall passes n > 2 via group count)
+  # CIs based on SE (zooplankton grps + overall Z - points w/out e)
   geom_errorbar(data = summary_data_wOverall %>% filter(n > 2),
                 aes(x = zoopGrp, ymin = CI_lwr, ymax = CI_upr),
                 width = 0.15, 
                 colour = "black") +
   # mean Q10 points
-  geom_point(data = summary_data_wOverall %>% filter(zoopGrp != "Overall zooplankton"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp != "Overall zooplankton Q10"),
              aes(x = zoopGrp, y = mean_Q10, colour = "mean"),
              size = 2) +
   # OverallZ mean
-  geom_point(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton Q10"),
              aes(x = zoopGrp, y = mean_Q10),
              size = 2, colour = "black") +
-  # Error bars for Q10 in MEMs
+  # CIs for Q10 in MEMs
   geom_errorbar(data = modDatSum,
                 aes(x = name, ymin = CI_lwr, ymax = CI_upr),
                 width = 0.15,
@@ -172,17 +188,23 @@ meanQ10s <- ggplot() +
   scale_y_continuous(breaks = seq(0, 8, by = 2)) +
   # Use custom taxonomic order with Overall specified as the last "column"
   scale_x_discrete(limits = axis_levels,
+                   labels = c(setNames(grp_order, grp_order),
+                              "Overall zooplankton Q10" = "Overall zooplankton Q<sub>10</sub>",
+                              "Model Q10" = "Model Q<sub>10</sub>"),
                    expand = expansion(add = c(0.4, 0.4))) +
   scale_colour_manual(name = NULL,
                       values = c("raw" = "darkgrey", "mean" = "black"),
                       labels = c("raw"  = expression("Raw Q"[10]),
                                  "mean" = expression("Mean Q"[10]))) +
   theme(axis.text = element_text(size = 9),
-        axis.text.x = element_text(angle = 30, hjust = 1),
+        axis.text.x = element_markdown(angle = 35, hjust = 1),
         panel.border = element_rect(colour = "grey30", linewidth = 0.3, fill = NA),
+        panel.spacing.y = unit(0.5, "lines"),
+        
         legend.position = "top",
-        strip.text = element_text(size = 10, face = "bold"),
-        plot.margin = margin(t = 5, r = 5, b = 5, l = 25),
+        legend.margin = margin(t = -3, b = -7),
+        strip.text = element_text(size = 10, face = "bold", margin = margin(b = 8)),
+        plot.margin = margin(t = 5, r = 5, b = 5, l = 26),
         panel.grid.minor.y = element_blank(),
         strip.background = element_rect(fill = "NA", colour = "NA")) +
   coord_cartesian(clip = "off") +
