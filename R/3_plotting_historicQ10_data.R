@@ -9,7 +9,7 @@ library(ggtext) # For fixing subscripts on plot easy...
 
 
 
-# Read in the data ----
+# Read in the zooplankton Q10 data ----
 dat <- readRDS("Data/historicQ10_dat.rds") %>% 
   filter(!zoopGrp == "OTHER") %>% 
   relocate(zoopGrp, .before = phylum)
@@ -18,11 +18,13 @@ glimpse(dat)
   # Custom rate order 
   rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
 
+# Read in the Model Q10 data
 modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
   mutate(name = "Model Q10", # update name
          rate = fct_relevel(rate, rate_order)) %>% # relevel the rate order
   drop_na(Q10)
 
+# Read in the Model Q10 Summary
 modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
   mutate(name = "Model Q10", # update name
          rate = fct_relevel(rate, rate_order)) # relevel the rate order
@@ -61,6 +63,7 @@ pdat <- dat %>%
          rate = fct_relevel(rate, rate_order), # reorder the rates with our custom order
          zoopGrp = fct_relevel(zoopGrp, group_order)) # as above but for zooplankton groups
 
+
 # Get n_obs and define variables for summary
 n_obs <- pdat %>%
   count(rate, zoopGrp)
@@ -95,6 +98,9 @@ summary_data_wOverall <- summary_data %>%
                 .groups = "drop") %>%
       mutate(CI_lwr = mean_Q10 - Z * se,
              CI_upr = mean_Q10 + Z * se))
+
+summary_data_wOverall %>% arrange(rate, mean_Q10) %>% view()
+
 
 # Arrange the x-axis text order...
 grp_order <- levels(pdat$zoopGrp)
