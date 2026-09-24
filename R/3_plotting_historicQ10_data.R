@@ -29,7 +29,7 @@ modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>%
   mutate(name = "Model Q10", # update name
          rate = fct_relevel(rate, rate_order)) # relevel the rate order
 
-# Custom grouping order
+# Custom grouping order based roughly on phylogeny
 group_order <- c("Ctenophores",
                  "Cnidarians",
                  "Chaetognaths",
@@ -64,47 +64,45 @@ pdat <- dat %>%
          zoopGrp = fct_relevel(zoopGrp, group_order)) # as above but for zooplankton groups
 
 
-# Get n_obs and define variables for summary
-n_obs <- pdat %>%
-  count(rate, zoopGrp)
-
-
-
 # Create a summary of the Q10 data, including confidence intervals ----
-Z <- 1.96  # critical value for 95% CI
+Z <- 1.96  # critical value for estimating 95% CI
 
 # Summary of zooplankton Q10 data
 summary_data <- pdat %>%
-  group_by(zoopGrp, rate) %>%
+  group_by(zoopGrp, rate) %>% # group by zoopGrp and rates
   summarise(mean_Q10 = mean(Q10, na.rm = TRUE), # calculate mean Q10
             sd_Q10 = sd(Q10, na.rm = TRUE), # calculate standard deviation
-            .groups = "drop") %>%
-  left_join(n_obs, by = c("rate", "zoopGrp")) %>% # left join the number of observations by rate and zooplankton group
-  mutate(se = sd_Q10 / sqrt(n), # calculate standard error so we can estimate 95% CI
+            n_obs = n(), # count number of observations per group combination
+            .groups = "drop") %>% # drop all levels of grouping
+  mutate(se = sd_Q10 / sqrt(n_obs), # calculate standard error so we can estimate 95% CI
          # Estimate CIs based on SE
-         CI_lwr = mean_Q10 - Z * se,
-         CI_upr = mean_Q10 + Z * se)
+         CI_lwr = mean_Q10 - Z * se, # lower CI
+         CI_upr = mean_Q10 + Z * se) # upper CI
 
-# add "Overall zooplankton Q10" based on our initial 
+overallZ <- pdat %>% 
+  group_by(rate) %>% # group by zoopGrp and rates
+  summarise(zoopGrp = "Overall zooplankton Q10", # create a new zoopGrp called Overall zooplankton...
+            mean_Q10 = mean(Q10, na.rm = TRUE), # calculate mean Q10 for overallZ
+            sd_Q10 = sd(Q10, na.rm = TRUE), # calculate standard deviation for overallZ
+            n_obs = n(), # count number of observations per group combination
+            .groups = "drop") %>% # drop all levels of grouping
+  mutate(se = sd_Q10 / sqrt(n_obs), # calculate standard error so we can estimate 95% CI
+         # Estimate CIs based on SE for overallZ
+         CI_lwr = mean_Q10 - Z * se, # lower CI
+         CI_upr = mean_Q10 + Z * se) # upper CI
+
+
+# Join "Overall zooplankton Q10" onto our full summary data
 summary_data_wOverall <- summary_data %>%
-  bind_rows(
-    summary_data %>%
-      group_by(rate) %>%
-      summarise(zoopGrp  = "Overall zooplankton Q10",
-                mean_Q10 = mean(mean_Q10, na.rm = TRUE),
-                sd_Q10 = NA_real_,
-                n = sum(!is.na(se)),
-                se = sqrt(sum(se^2, na.rm = TRUE)) /n,
-                .groups = "drop") %>%
-      mutate(CI_lwr = mean_Q10 - Z * se,
-             CI_upr = mean_Q10 + Z * se))
-
+  bind_rows(overallZ)
+        
+# View the data table
 summary_data_wOverall %>% arrange(rate, mean_Q10) %>% view()
 
 
 # Arrange the x-axis text order...
-grp_order <- levels(pdat$zoopGrp)
-axis_levels <- c(grp_order, "Overall zooplankton Q10", "Model Q10")
+grp_order <- levels(pdat$zoopGrp) # take the existing zoopGrp order, which is phylogenetically ordered
+axis_levels <- c(grp_order, "Overall zooplankton Q10", "Model Q10") # and add it before OverallZ and Model Q10 and put it in an object for plotting...
 
 
 
@@ -114,12 +112,22 @@ meanQ10s <- ggplot() +
   annotate("rect",
            xmin = length(grp_order) + 0.5, xmax = length(grp_order) + 1.5,
            ymin = -Inf, ymax = Inf,
-           fill = "grey85", alpha = 0.5) +
+           fill = "#F2F2F2") +
   # Background panel for Model Q10 vals
   annotate("rect",
            xmin = length(grp_order) + 1.5, xmax = length(grp_order) + 2.6, 
            ymin = -Inf, ymax = Inf,
-           fill = "grey60", alpha = 0.4) +
+           fill = "#D9D9D9") +
+  # Add custom coloured gridlines over the annotated rectangles
+  geom_segment(data = data.frame(y = seq(0, 8, by = 2)),
+               aes(x = length(grp_order) + 0.5, xend = length(grp_order) + 2.6,
+                   y = y, yend = y),
+               colour = "grey92",
+               linewidth = 0.3,
+               inherit.aes = FALSE) +
+  geom_vline(xintercept = seq(1.5, length(grp_order) - 0.5, by = 1),
+             colour = "grey92",
+             linewidth = 0.3) +
   # Text label for Overall zooplankton Q10
   geom_text(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton Q10"),
             aes(x = zoopGrp, y = Inf, label = sprintf("%.2f", mean_Q10)),
@@ -128,11 +136,6 @@ meanQ10s <- ggplot() +
   geom_text(data = modDatSum,
             aes(x = name, y = Inf, label = sprintf("%.2f", mean_Q10)),
             vjust = -0.5, size = 2.5) +
-  # Horizontal line showing mean Q10 used in models
-  # geom_hline(data = modDatSum, 
-  #            aes(yintercept = mean_Q10, colour =), # the value of meanQ10 in models...
-  #            linetype = "dashed",
-  #            linewidth = 0.5) +
   # Dashed vertical separator before the OverallZ column
   geom_vline(xintercept = length(grp_order) + 0.5,
              linetype = "dashed", 
@@ -147,10 +150,10 @@ meanQ10s <- ggplot() +
   geom_point(data = pdat,
              aes(x = zoopGrp, y = Q10, colour = "raw"),
              size = 1.5, 
-             alpha = 0.3,
+             alpha = 0.5,
              position = position_jitter(width = 0.2, height = 0)) +
   # CIs based on SE (zooplankton grps + overall Z - points w/out e)
-  geom_errorbar(data = summary_data_wOverall %>% filter(n > 2),
+  geom_errorbar(data = summary_data_wOverall %>% filter(n_obs > 2),
                 aes(x = zoopGrp, ymin = CI_lwr, ymax = CI_upr),
                 width = 0.15, 
                 colour = "black") +
@@ -177,17 +180,8 @@ meanQ10s <- ggplot() +
   geom_point(data = modDatSum,
              aes(x = name, y = mean_Q10, colour = "mean"),
              size = 2) +
-  # # Q10 text taxonomic groups
-  # geom_text(data = summary_data %>% filter(zoopGrp != "Overall zooplankton"),
-  #           aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
-  #           size = 3, colour = "black") +
-  # # OverallZ Q10 text
-  # geom_text(data = summary_data %>% filter(zoopGrp == "Overall zooplankton"),
-  #           aes(x = zoopGrp, y = -.5, label = sprintf("%.2f", mean_Q10)),
-  #           size = 3, colour = "black", fontface = "bold") +
   # Facet wrap by the rate processes
   facet_wrap(~rate, scales = "fixed", ncol = 2) +
-  theme_bw() +
   labs(x = NULL,
        y = expression("Temperature sensitivity (Q"[10] *")")) +
   # Force the y-axis values to be between 0 and 8 to show raw data
@@ -197,16 +191,29 @@ meanQ10s <- ggplot() +
                    labels = c(setNames(grp_order, grp_order),
                               "Overall zooplankton Q10" = "Overall zooplankton Q<sub>10</sub>",
                               "Model Q10" = "Model Q<sub>10</sub>"),
-                   expand = expansion(add = c(0.4, 0.4))) +
+                   expand = expansion(add = c(0.4, 0.4)),
+                   guide = guide_axis(minor.ticks = TRUE)) +
   scale_colour_manual(name = NULL,
                       values = c("raw" = "darkgrey", "mean" = "black"),
                       labels = c("raw"  = expression("Raw Q"[10]),
                                  "mean" = expression("Mean Q"[10]))) +
-  theme(axis.text = element_text(size = 9),
+  theme_bw() + # Set theme to bw and then make some adjustments...
+  theme(# Axes text adjustments
+        axis.text = element_text(size = 9),
         axis.text.x = element_markdown(angle = 35, hjust = 1),
+        
+        # Panel adjustments
+        panel.grid.major.x = element_blank(), # hide grid lines on columns
         panel.border = element_rect(colour = "grey30", linewidth = 0.3, fill = NA),
         panel.spacing.y = unit(0.5, "lines"),
-        
+
+        # Axes adjustments
+        axis.ticks.length.y = unit(1.75, "mm"),
+        axis.ticks.x = element_line(colour = "grey30", linewidth = 0.3),
+        axis.ticks.length.x = unit(1.75, "mm"),
+        axis.minor.ticks.x.bottom = element_line(colour = "grey30", linewidth = 0.3),
+
+        # Legend adjustments
         legend.position = "top",
         legend.margin = margin(t = -3, b = -7),
         strip.text = element_text(size = 10, face = "bold", margin = margin(b = 8)),
@@ -217,6 +224,8 @@ meanQ10s <- ggplot() +
   guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2)))
 meanQ10s
 
+# Count the number of models per rate process
+modDat %>% arrange(rate) %>% group_by(rate) %>% distinct(model)
 
 # ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
 ggsave("Output/Q10Plot.png", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
