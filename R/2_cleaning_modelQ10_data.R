@@ -10,25 +10,27 @@ library(tidyverse)
 
 # Read in the data ----
 dat <- read_csv("Data/ModelQ10s_dat.csv") %>% 
-  select(primRef, model, taxa, rate, Q10) %>% # select variables
+  select(primRef, model, taxa, rate, Q10, modelType) %>% # select variables
   mutate(Q10 = case_when(model == "BLING" ~ NA, # Change BLING Q10 to NA because it was "-" prior
                          .default = Q10)) %>% # keep remaining Q10 vals as is
   mutate(Q10 = as.numeric(Q10), # make Q10 numeric
          name = "modelQ10") %>% # make a generic identifying name for the values for when we combine plots
-  mutate_if(is.character, factor) # make all chr vars a factor
+  mutate_if(is.character, factor) %>%  # make all chr vars a factor
+  filter_out(modelType == "Ecosystem") # exclude ecosystem models and only include BGCs of ESMs
 glimpse(dat)
 
-datClean <- dat %>%
-  filter(rate != "All rates") %>% # Create a new dataframe for model Q10s...
-  bind_rows(dat %>% # bind the initial data frame
-              filter(rate == "All rates") %>% # but only include the NUMERO model values...
-              slice(rep(1, 4)) %>% # slice the values for the only row and replicate them 4 times..,
-              mutate(rate = c("Grazing", "Growth", "Respiration", "Excretion"))) # and give them new rate values instead of All rates
+# ---- removed below because we no longer include NEMUR ---- #
+# datClean <- dat %>%
+#   filter(rate != "All rates") %>% # Create a new dataframe for model Q10s...
+#   bind_rows(dat %>% # bind the initial data frame
+#               filter(rate == "All rates") %>% # but only include the NUMERO model values...
+#               slice(rep(1, 4)) %>% # slice the values for the only row and replicate them 4 times..,
+#               mutate(rate = c("Grazing", "Growth", "Respiration", "Excretion"))) # and give them new rate values instead of All rates
 
 
 # Subset the data and generate simple 
 # Get n_obs
-n_obs <- datClean %>%
+n_obs <- dat %>%
   group_by(rate) %>% 
   drop_na(Q10) %>% 
   summarise(n = n())
@@ -36,7 +38,7 @@ n_obs <- datClean %>%
 Z <- 1.96  # critical value for 95% CI
 
 # Get meanQ10 and 95% CIs and bind the number of obs 
-sumDat <- datClean %>% 
+sumDat <- dat %>% 
   drop_na(Q10) %>% 
   group_by(rate) %>%
   summarise(mean_Q10 = mean(Q10),
@@ -48,7 +50,7 @@ sumDat <- datClean %>%
   mutate(name = "modelQ10")
 
 ggplot() +
-  geom_point(data = datClean,
+  geom_point(data = dat,
              aes(x = name, y = Q10),
              colour = "grey60",
              alpha = 0.5,
@@ -67,7 +69,7 @@ ggplot() +
 # Great, looks good. 
 
 # Save as RDS
-saveRDS(datClean, "Data/ModelQ10_dat.rds")
+saveRDS(dat, "Data/ModelQ10_dat.rds")
 saveRDS(sumDat, "Data/ModelQ10summary_dat.rds")
 
 

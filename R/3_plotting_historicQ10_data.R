@@ -20,14 +20,16 @@ glimpse(dat)
 
 # Read in the Model Q10 data
 modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
-  mutate(name = "Model Q10", # update name
-         rate = fct_relevel(rate, rate_order)) %>% # relevel the rate order
+  mutate(name = "Model Q10"#, # update name
+         #rate = fct_relevel(rate, rate_order)
+         ) %>% # relevel the rate order
   drop_na(Q10)
 
 # Read in the Model Q10 Summary
 modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
-  mutate(name = "Model Q10", # update name
-         rate = fct_relevel(rate, rate_order)) # relevel the rate order
+  mutate(name = "Model Q10"#, # update name
+         #rate = fct_relevel(rate, rate_order) # relevel the rate order
+         ) 
 
 # Custom grouping order based roughly on phylogeny
 group_order <- c("Ctenophores",
@@ -48,7 +50,7 @@ pdat <- dat %>%
   filter(Q10 < 20) %>% # drop extreme outliers...
   # Filter for all initial rate types
   filter(rate %in% c("Clearance", "Ingestion", "Growth", "Respiration", 
-                     "HouseProduction", "Excretion", "ExcretionAmmonia", "ExcretionPhosphate")) %>% 
+                     "HouseProduction", "Excretion", "ExcretionAmmonia", "ExcretionPhosphate", "PhosphateExcretion")) %>% 
   select(rate, zoopGrp, Q10) %>% 
   # Harmonise the rates to common terms
   mutate(rate = fct_recode(rate, 
@@ -59,7 +61,8 @@ pdat <- dat %>%
                            "Growth"  = "HouseProduction",
                            # Aggregate Excretion types into Excretion
                            "Excretion" = "ExcretionAmmonia",
-                           "Excretion" = "ExcretionPhosphate"),
+                           "Excretion" = "ExcretionPhosphate",
+                           "Excretion" = "PhosphateExcretion"),
          rate = fct_relevel(rate, rate_order), # reorder the rates with our custom order
          zoopGrp = fct_relevel(zoopGrp, group_order)) # as above but for zooplankton groups
 
@@ -81,7 +84,7 @@ summary_data <- pdat %>%
 
 overallZ <- pdat %>% 
   group_by(rate) %>% # group by zoopGrp and rates
-  summarise(zoopGrp = "Overall zooplankton Q10", # create a new zoopGrp called Overall zooplankton...
+  summarise(zoopGrp = "Overall Q10", # create a new zoopGrp called Overall zooplankton...
             mean_Q10 = mean(Q10, na.rm = TRUE), # calculate mean Q10 for overallZ
             sd_Q10 = sd(Q10, na.rm = TRUE), # calculate standard deviation for overallZ
             n_obs = n(), # count number of observations per group combination
@@ -97,12 +100,12 @@ summary_data_wOverall <- summary_data %>%
   bind_rows(overallZ)
         
 # View the data table
-summary_data_wOverall %>% arrange(rate, mean_Q10) %>% view()
+summary_data_wOverall %>% arrange(rate, mean_Q10) #%>% view()
 
 
 # Arrange the x-axis text order...
 grp_order <- levels(pdat$zoopGrp) # take the existing zoopGrp order, which is phylogenetically ordered
-axis_levels <- c(grp_order, "Overall zooplankton Q10", "Model Q10") # and add it before OverallZ and Model Q10 and put it in an object for plotting...
+axis_levels <- c(grp_order, "Overall Q10", "Model Q10") # and add it before OverallZ and Model Q10 and put it in an object for plotting...
 
 
 
@@ -128,14 +131,6 @@ meanQ10s <- ggplot() +
   geom_vline(xintercept = seq(1.5, length(grp_order) - 0.5, by = 1),
              colour = "grey92",
              linewidth = 0.3) +
-  # Text label for Overall zooplankton Q10
-  geom_text(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton Q10"),
-            aes(x = zoopGrp, y = Inf, label = sprintf("%.2f", mean_Q10)),
-            vjust = -0.5, size = 2.5) +
-  # Text label for Model Q10
-  geom_text(data = modDatSum,
-            aes(x = name, y = Inf, label = sprintf("%.2f", mean_Q10)),
-            vjust = -0.5, size = 2.5) +
   # Dashed vertical separator before the OverallZ column
   geom_vline(xintercept = length(grp_order) + 0.5,
              linetype = "dashed", 
@@ -158,11 +153,11 @@ meanQ10s <- ggplot() +
                 width = 0.15, 
                 colour = "black") +
   # mean Q10 points
-  geom_point(data = summary_data_wOverall %>% filter(zoopGrp != "Overall zooplankton Q10"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp != "Overall Q10"),
              aes(x = zoopGrp, y = mean_Q10, colour = "mean"),
              size = 2) +
   # OverallZ mean
-  geom_point(data = summary_data_wOverall %>% filter(zoopGrp == "Overall zooplankton Q10"),
+  geom_point(data = summary_data_wOverall %>% filter(zoopGrp == "Overall Q10"),
              aes(x = zoopGrp, y = mean_Q10),
              size = 2, colour = "black") +
   # CIs for Q10 in MEMs
@@ -180,6 +175,14 @@ meanQ10s <- ggplot() +
   geom_point(data = modDatSum,
              aes(x = name, y = mean_Q10, colour = "mean"),
              size = 2) +
+  # Text label for Overall zooplankton Q10
+  geom_text(data = summary_data_wOverall %>% filter(zoopGrp == "Overall Q10"),
+            aes(x = zoopGrp, y = CI_upr + 0.2, label = sprintf("%.2f", mean_Q10)),
+            vjust = -0.5, size = 2.5) +
+  # Text label for Model Q10
+  geom_text(data = modDatSum,
+            aes(x = name, y = CI_upr + 0.2, label = sprintf("%.2f", mean_Q10)),
+            vjust = -0.5, size = 2.5) +
   # Facet wrap by the rate processes
   facet_wrap(~rate, scales = "fixed", ncol = 2) +
   labs(x = NULL,
@@ -189,7 +192,7 @@ meanQ10s <- ggplot() +
   # Use custom taxonomic order with Overall specified as the last "column"
   scale_x_discrete(limits = axis_levels,
                    labels = c(setNames(grp_order, grp_order),
-                              "Overall zooplankton Q10" = "Overall zooplankton Q<sub>10</sub>",
+                              "Overall Q10" = "Overall Q<sub>10</sub>",
                               "Model Q10" = "Model Q<sub>10</sub>"),
                    expand = expansion(add = c(0.4, 0.4)),
                    guide = guide_axis(minor.ticks = TRUE)) +
@@ -198,9 +201,13 @@ meanQ10s <- ggplot() +
                       labels = c("raw"  = expression("Raw Q"[10]),
                                  "mean" = expression("Mean Q"[10]))) +
   theme_bw() + # Set theme to bw and then make some adjustments...
-  theme(# Axes text adjustments
-        axis.text = element_text(size = 9),
-        axis.text.x = element_markdown(angle = 35, hjust = 1),
+  theme(# Font
+        text = (element_text(family = "Helvetica")),
+
+        # Axes text adjustments
+        axis.text = element_text(size = 9), # axis text
+        axis.text.x = element_markdown(angle = 35, hjust = 1), # x-axis adjustment
+        axis.title = element_text(size = 11), # Both X and Y main titles
         
         # Panel adjustments
         panel.grid.major.x = element_blank(), # hide grid lines on columns
