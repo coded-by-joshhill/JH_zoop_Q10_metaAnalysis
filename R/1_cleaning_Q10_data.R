@@ -4,14 +4,7 @@
 
 
 
-  # Here I read in the data
-  # Use worrms package to get AphiaID's and taxon classifications
-  # Group zoops into unique groups
-  # Save as an RDS file
-
-
-
-# Packages and helpers ----
+# Packages ----
 library(tidyverse)
 library(janitor)
 library(worrms)
@@ -27,32 +20,18 @@ dat <- read_csv("Data/Historic_Q10_dat.csv") %>%
                        .default = rate)) %>% 
   filter(taxa != "Zooplankton") %>% # remove these observations because we cannot derive Aphia ID and specific classifications...
   relocate(ref_no, .before = everything()) %>%  # move refno before all columns
-  select(-temp_range_C)
+  select(-temp_range_C) # remove temp_range, we can derive this from min or max anyway later
 glimpse(dat)
 
 
-  # Look at all unique taxon
-  dat %>% 
-    distinct(taxa) %>% 
-    arrange(taxa) %>% 
-    print(n = "Inf")
+# Look at all unique taxon
+dat %>% 
+  distinct(taxa) %>% 
+  arrange(taxa) %>% 
+  print(n = "Inf")
+# All seems to be in order
  
-  
-  # Look at all unique primary references for each rate type
-  dat %>% 
-    group_by(Q10Type) %>% 
-    distinct(primRef) %>% 
-    summarise(count = n())
-      # 11 interspecific records
-      # 37 intraspecific records
-  
-  
-  # Look at the Q10 types and rates
-  dat %>% 
-    group_by(rate) %>% 
-    distinct(rate)
-
-  
+ 
 
 # Subset taxa data to get AphiaIDs and classifications ----
 taxaDat <- dat %>% 
@@ -70,9 +49,10 @@ taxaDat <- dat %>%
     taxaDatID %>% 
       summary() # ensure there are no NAs...
       # There's two...
-    view(taxaDatID) # Appendicularia and Ctenophora
+      taxaDatID %>% filter(is.na(AphiaID)) 
+      # Appendicularia and Ctenophora
     
-      # Manually add Aphia ids for missing data
+      # Manually add Aphia ids for missing data from WoRMS database
       taxaDatID <- taxaDatID %>%
         mutate(AphiaID = if_else(taxa == "Appendicularia", 146421, AphiaID)) %>% 
         mutate(AphiaID = if_else(taxa == "Ctenophora", 1248, AphiaID))
@@ -169,7 +149,7 @@ datClean <- dat %>%
     arrange(countZoopGrp)
   # 1 Mysids                      2
   # 2 Chaetognaths                5
-  # 3 OTHER                       6 ... these are 1 rotifer and 5 crustacea..which cannot have a finer zoopGrp classification
+  # 3 OTHER                       6 ... these are 1 rotifera and 5 crustaceans..which cannot have a finer zoopGrp classification
   # 4 Ctenophores                 9
   # 5 Thaliaceans                11
   # 6 Appendicularians           13
@@ -180,29 +160,8 @@ datClean <- dat %>%
   # 11 Amphipods                  74
   # 12 Copepods                  131
   
-  # Count number of unique "functional" groups Q10s
-  datClean %>% 
-    group_by(funcGrp) %>% 
-    mutate(countFuncGrp = sum(funcGrp > 1, na.rm = TRUE)) %>% 
-    distinct(funcGrp, countFuncGrp) %>% 
-    arrange(countFuncGrp)
-  # 1 OTHER                 21
-  # 2 GelFilter             24
-  # 3 GelPreds              33
-  # 4 Crustaceans          271
-  
-  # Count number of unique size groups Q10s
-  datClean %>% 
-    group_by(sizeGrp) %>% 
-    mutate(countSizeGrp = sum(sizeGrp > 1, na.rm = TRUE)) %>% 
-    distinct(sizeGrp, countSizeGrp) %>% 
-    arrange(countSizeGrp)
-  # 1 OTHER                   14
-  # 2 Mesoplankton           156
-  # 3 Macroplankton          179
-
 # End data cleaning ----
 
   
-# Save the data
+# Save the data ----
 saveRDS(datClean, "Data/historicQ10_dat.rds")

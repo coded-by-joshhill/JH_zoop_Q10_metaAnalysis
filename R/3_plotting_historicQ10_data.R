@@ -1,22 +1,24 @@
-# Historic Q10 values
+# Plotting Historic Q10 values
 # Josh Hill
 # 17/07/2026
 
 
 # Packages and helpers ----
 library(tidyverse)
-library(ggtext) # For fixing subscripts on plot easy...
+library(ggtext) # For fixing subscripts on plots easily...
 
 
 
 # Read in the zooplankton Q10 data ----
 dat <- readRDS("Data/historicQ10_dat.rds") %>% 
-  filter(!zoopGrp == "OTHER") %>% 
+  filter(!zoopGrp == "OTHER") %>% # filter out zoopGrps that are classified as OTHER
   relocate(zoopGrp, .before = phylum)
 glimpse(dat)
 
-  # Custom rate order 
-  rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
+
+# Custom rate order 
+rate_order <- c("Grazing", "Growth", "Respiration", "Excretion")
+
 
 # Read in the Model Q10 data
 modDat <- readRDS("Data/ModelQ10_dat.rds") %>% 
@@ -25,11 +27,11 @@ modDat <- readRDS("Data/ModelQ10_dat.rds") %>%
          ) %>% # relevel the rate order
   drop_na(Q10)
 
+
 # Read in the Model Q10 Summary
 modDatSum <- readRDS("Data/ModelQ10summary_dat.rds") %>% 
-  mutate(name = "Model Q10"#, # update name
-         #rate = fct_relevel(rate, rate_order) # relevel the rate order
-         ) 
+  mutate(name = "Model Q10") # update name
+
 
 # Custom grouping order based roughly on phylogeny
 group_order <- c("Ctenophores",
@@ -45,13 +47,14 @@ group_order <- c("Ctenophores",
                  "Thaliaceans")
                  
 
+
 # Create plotting dataframe ----
 pdat <- dat %>% 
-  filter(Q10 < 20) %>% # drop extreme outliers...
+  filter(Q10 < 20) %>% # drop extreme outliers...only 3 observations removed here...
   # Filter for all initial rate types
   filter(rate %in% c("Clearance", "Ingestion", "Growth", "Respiration", 
                      "HouseProduction", "Excretion", "ExcretionAmmonia", "ExcretionPhosphate", "PhosphateExcretion")) %>% 
-  select(rate, zoopGrp, Q10) %>% 
+  select(rate, zoopGrp, Q10) %>% # select variables of interest
   # Harmonise the rates to common terms
   mutate(rate = fct_recode(rate, 
                            # Aggregate clearance and ingestion into Grazing
@@ -70,6 +73,7 @@ pdat <- dat %>%
 # Create a summary of the Q10 data, including confidence intervals ----
 Z <- 1.96  # critical value for estimating 95% CI
 
+
 # Summary of zooplankton Q10 data
 summary_data <- pdat %>%
   group_by(zoopGrp, rate) %>% # group by zoopGrp and rates
@@ -82,6 +86,8 @@ summary_data <- pdat %>%
          CI_lwr = mean_Q10 - Z * se, # lower CI
          CI_upr = mean_Q10 + Z * se) # upper CI
 
+
+# Summary of overall zooplankton
 overallZ <- pdat %>% 
   group_by(rate) %>% # group by zoopGrp and rates
   summarise(zoopGrp = "Overall Q10", # create a new zoopGrp called Overall zooplankton...
@@ -96,17 +102,16 @@ overallZ <- pdat %>%
 
 
 # Join "Overall zooplankton Q10" onto our full summary data
-summary_data_wOverall <- summary_data %>%
-  bind_rows(overallZ)
-        
+summary_data_wOverall <- summary_data %>% bind_rows(overallZ)
+
 # View the data table
-summary_data_wOverall %>% arrange(rate, mean_Q10) #%>% view()
+summary_data_wOverall %>% arrange(rate, mean_Q10) %>% print(n = Inf)
+# Some groups with insufficient data to estimate SE
 
 
 # Arrange the x-axis text order...
 grp_order <- levels(pdat$zoopGrp) # take the existing zoopGrp order, which is phylogenetically ordered
 axis_levels <- c(grp_order, "Overall Q10", "Model Q10") # and add it before OverallZ and Model Q10 and put it in an object for plotting...
-
 
 
 # Plot it up...
@@ -203,23 +208,19 @@ meanQ10s <- ggplot() +
   theme_bw() + # Set theme to bw and then make some adjustments...
   theme(# Font
         text = (element_text(family = "Helvetica")),
-
         # Axes text adjustments
         axis.text = element_text(size = 9), # axis text
         axis.text.x = element_markdown(angle = 35, hjust = 1), # x-axis adjustment
         axis.title = element_text(size = 11), # Both X and Y main titles
-        
         # Panel adjustments
         panel.grid.major.x = element_blank(), # hide grid lines on columns
         panel.border = element_rect(colour = "grey30", linewidth = 0.3, fill = NA),
         panel.spacing.y = unit(0.5, "lines"),
-
         # Axes adjustments
         axis.ticks.length.y = unit(1.75, "mm"),
         axis.ticks.x = element_line(colour = "grey30", linewidth = 0.3),
         axis.ticks.length.x = unit(1.75, "mm"),
         axis.minor.ticks.x.bottom = element_line(colour = "grey30", linewidth = 0.3),
-
         # Legend adjustments
         legend.position = "top",
         legend.margin = margin(t = -3, b = -7),
@@ -234,7 +235,6 @@ meanQ10s
 # Count the number of models per rate process
 modDat %>% arrange(rate) %>% group_by(rate) %>% distinct(model)
 
-# ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s# ggsave("Output/Q10Plot.pdf", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
+# Save as a pdf and png
+ggsave("Output/Q10Plot.pdf", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
 ggsave("Output/Q10Plot.png", plot = meanQ10s, width = 180, height = 160, units = "mm", dpi = 300)
-
-  

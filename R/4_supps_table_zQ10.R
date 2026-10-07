@@ -3,19 +3,21 @@
 # 05/10/26
 
 
+
 # Libraries ----
 library(tidyverse)
-library(writexl)
+library(writexl) # For saving the supplementary table as an excel spreadsheet
 
 
 
 # Read in the zooplankton Q10 data ----
 dat <- readRDS("Data/historicQ10_dat.rds") %>% 
-  filter(!zoopGrp == "OTHER") %>% 
-  mutate(tempRange_C = paste0(temp_min_C, "–", temp_max_C)) %>% 
+  filter(!zoopGrp == "OTHER") %>% # filter out zoopGrps that are classified as OTHER
+  mutate(tempRange_C = paste0(temp_min_C, "–", temp_max_C)) %>% # generate the temperature range based on the min and max values
   relocate(zoopGrp, .before = phylum) %>% 
   relocate(tempRange_C, .after = temp_max_C)
 glimpse(dat)
+
 
 # Custom grouping order based roughly on phylogeny
 group_order <- c("Ctenophores",
@@ -58,12 +60,12 @@ tableDat <- dat %>%
                            "Digestion" = "GutClearance"),
          rate = fct_relevel(rate, rate_order), # reorder the rates with our custom order
          zoopGrp = fct_relevel(zoopGrp, group_order)) %>%  # as above but for zooplankton groups
-  #filter(rate == c("Grazing", "Growth", "Respiration", "Excretion")) %>% 
-  arrange(zoopGrp, taxa, rate, primRef, Q10) %>% 
-  mutate(
-    primRef_URL = case_when(
-      primRef == "Hill2026" ~ "In review",
-      .default = primRef_URL)) %>% 
+  arrange(zoopGrp, taxa, rate, primRef, Q10) %>% # arrange the data based on this list of variables
+  # Update primRef URL for Hill2026
+  mutate(primRef_URL = case_when(
+    primRef == "Hill2026" ~ "In review", # assign In review
+    .default = primRef_URL)) %>% # leave all others as is...
+  # Rename the variables
   rename("Originally reported taxon" = "taxa",
          "Taxonomic group" = "zoopGrp",
          "Biological rate" = "rate",
@@ -73,13 +75,9 @@ tableDat <- dat %>%
          "Primary reference" = "primRef",
          "Primary reference DOI/URL" = "primRef_URL")
 
-
-  
-
 # Check data
 head(tableDat, n = 20) 
-# looks good
+# looks appropriate
 
 # Save as excel sheet
 write_xlsx(tableDat, "Output/suppTableZQ10.xlsx")
-
